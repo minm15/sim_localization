@@ -17,6 +17,8 @@
   <depend>PCL</depend>
   <depend>cv_bridge</depend>
   <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_msgs</depend>
   <depend>tf2_geometry_msgs</depend>
   <depend>Eigen3</depend>
 </package>

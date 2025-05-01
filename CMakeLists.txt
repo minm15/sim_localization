@@ -14,6 +14,7 @@ find_package(message_filters REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(PCL REQUIRED)
 find_package(tf2 REQUIRED)
+find_package(tf2_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
@@ -40,6 +41,8 @@ ament_target_dependencies(localization_node
   pcl_conversions
   PCL
   tf2
+  tf2_ros
+  tf2_msgs
   tf2_geometry_msgs
   Eigen3
   cv_bridge
