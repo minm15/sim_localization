@@ -1,6 +1,6 @@
 // src/localizationMain.cpp
 
-#include "sim_local/localization_node.hpp" // your existing class
+#include "sim_local/nuscenes_node.hpp" // your existing class
 #include <rclcpp/rclcpp.hpp>
 
 int main(int argc, char** argv) {
@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
 
     if (dataset == "nuscenes") {
         // pass along the same NodeOptions so that all parameter overrides propagate
-        auto loc_node = std::make_shared<sim_local::LocalizationNode>(opts);
+        auto loc_node = std::make_shared<sim_local::NuscenesNode>(opts);
         rclcpp::spin(loc_node);
 
     } else {

@@ -1,4 +1,4 @@
-#include "sim_local/localization_node.hpp"
+#include "sim_local/nuscenes_node.hpp"
 
 #include <fstream>
 #include <cmath>
@@ -8,19 +8,19 @@
 
 namespace sim_local {
 
-LocalizationNode::LocalizationNode(const rclcpp::NodeOptions & opts)
+NuscenesNode::NuscenesNode(const rclcpp::NodeOptions & opts)
 : Node("map_based_localization", opts),
   frame_count_(0),
   has_last_odom_time_(false)
 {
   // parameters
   declare_parameter<std::string>("descriptor_file", "descriptors.bin");
-  declare_parameter<double>("initial_pose_x", 409.743152);
-  declare_parameter<double>("initial_pose_y", 1176.676973);
+  declare_parameter<double>("initial_pose_x", 411.303935);
+  declare_parameter<double>("initial_pose_y", 1180.890379);
   declare_parameter<double>("initial_pose_z", 0.0);
   declare_parameter<double>("initial_roll", 0.0);
   declare_parameter<double>("initial_pitch", 0.0);
-  declare_parameter<double>("initial_yaw", -1.917831);
+  declare_parameter<double>("initial_yaw", -1.923645);
 
   get_parameter("descriptor_file", desc_file_);
   get_parameter("initial_pose_x", init_x_);
@@ -62,18 +62,18 @@ LocalizationNode::LocalizationNode(const rclcpp::NodeOptions & opts)
   // subscriptions
   odom_sub_ = create_subscription<Odometry>(
     "/odom", rclcpp::SystemDefaultsQoS(),
-    std::bind(&LocalizationNode::odomCallback, this, std::placeholders::_1));
+    std::bind(&NuscenesNode::odomCallback, this, std::placeholders::_1));
   lidar_sub_ = create_subscription<PointCloud2>(
     "/LIDAR_TOP", rclcpp::SensorDataQoS(),
-    std::bind(&LocalizationNode::lidarCallback, this, std::placeholders::_1));
+    std::bind(&NuscenesNode::lidarCallback, this, std::placeholders::_1));
   tf_sub_ = create_subscription<TFMessage>(
     "/tf", rclcpp::SystemDefaultsQoS(),
-    std::bind(&LocalizationNode::tfCallback, this, std::placeholders::_1));
+    std::bind(&NuscenesNode::tfCallback, this, std::placeholders::_1));
 
   RCLCPP_INFO(get_logger(), "Localization node initialized.");
 }
 
-cv::Mat LocalizationNode::loadBinaryFileToMat(const std::string& fp) {
+cv::Mat NuscenesNode::loadBinaryFileToMat(const std::string& fp) {
   std::ifstream file(fp, std::ios::binary);
   if (!file) throw std::runtime_error("Failed to open " + fp);
   std::vector<std::vector<float>> data;
@@ -92,7 +92,7 @@ cv::Mat LocalizationNode::loadBinaryFileToMat(const std::string& fp) {
   return m;
 }
 
-void LocalizationNode::odomCallback(const Odometry::SharedPtr odom) {
+void NuscenesNode::odomCallback(const Odometry::SharedPtr odom) {
   rclcpp::Time t(odom->header.stamp);
   if (!has_last_odom_time_) {
     last_odom_time_ = t;
@@ -139,14 +139,14 @@ void LocalizationNode::odomCallback(const Odometry::SharedPtr odom) {
   processPendingTFs();
 }
 
-void LocalizationNode::lidarCallback(const PointCloud2::SharedPtr cloud) {
+void NuscenesNode::lidarCallback(const PointCloud2::SharedPtr cloud) {
   rclcpp::Time t(cloud->header.stamp);
   lidar_history_.emplace_back(t, cloud);
   if (lidar_history_.size()>1000) lidar_history_.pop_front();
   processPendingTFs();
 }
 
-void LocalizationNode::tfCallback(const TFMessage::SharedPtr msg) {
+void NuscenesNode::tfCallback(const TFMessage::SharedPtr msg) {
   for (auto & ts : msg->transforms) {
     if (ts.header.frame_id!="map" || ts.child_frame_id!="base_link")
       continue;
@@ -165,7 +165,7 @@ void LocalizationNode::tfCallback(const TFMessage::SharedPtr msg) {
   }
 }
 
-void LocalizationNode::processPendingTFs() {
+void NuscenesNode::processPendingTFs() {
   while (!tf_queue_.empty()) {
     auto & ts = tf_queue_.front();
     rclcpp::Time t(ts.header.stamp);
@@ -178,7 +178,7 @@ void LocalizationNode::processPendingTFs() {
   }
 }
 
-void LocalizationNode::processOneTF(const TransformStamped & ts) {
+void NuscenesNode::processOneTF(const TransformStamped & ts) {
   rclcpp::Time tf_time(ts.header.stamp);
   Eigen::Matrix4f M = transformMsgToEigen(ts.transform);
   double gx = M(0,3), gy = M(1,3);
@@ -254,7 +254,7 @@ void LocalizationNode::processOneTF(const TransformStamped & ts) {
 
 template<typename BufferT>
 std::optional<typename BufferT::value_type>
-LocalizationNode::findLastBefore(const BufferT & buf, const rclcpp::Time & t)
+NuscenesNode::findLastBefore(const BufferT & buf, const rclcpp::Time & t)
 {
   using PairT = typename BufferT::value_type;
   if (buf.empty()) return std::nullopt;
@@ -279,7 +279,7 @@ LocalizationNode::findLastBefore(const BufferT & buf, const rclcpp::Time & t)
 }
 
 Eigen::Matrix4f
-LocalizationNode::transformMsgToEigen(const geometry_msgs::msg::Transform & t)
+NuscenesNode::transformMsgToEigen(const geometry_msgs::msg::Transform & t)
 {
   Eigen::Matrix4f M = Eigen::Matrix4f::Identity();
   M(0,3) = t.translation.x;
@@ -298,7 +298,7 @@ LocalizationNode::transformMsgToEigen(const geometry_msgs::msg::Transform & t)
 }
 
 Eigen::Matrix4f
-LocalizationNode::poseToEigen(const geometry_msgs::msg::Pose & p)
+NuscenesNode::poseToEigen(const geometry_msgs::msg::Pose & p)
 {
   geometry_msgs::msg::Transform t;
   t.translation.x = p.position.x;
@@ -309,7 +309,7 @@ LocalizationNode::poseToEigen(const geometry_msgs::msg::Pose & p)
 }
 
 std::vector<pcl::PointXYZ>
-LocalizationNode::transformKeyPoints(
+NuscenesNode::transformKeyPoints(
   const std::vector<pcl::PointXYZ> & pts,
   const Eigen::Matrix4f & T)
 {

@@ -30,7 +30,7 @@ include_directories(
 
 # Build the localization library
 add_library(localization_lib
-  src/localization_node.cpp
+  src/nuscenes_node.cpp
   src/Particle_filter.cpp
   src/LinK3D_extractor.cpp
 )

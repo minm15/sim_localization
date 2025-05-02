@@ -35,9 +35,9 @@ using tf2_msgs::msg::TFMessage;
 
 namespace sim_local {
 
-class LocalizationNode : public rclcpp::Node {
+class NuscenesNode : public rclcpp::Node {
   public:
-    explicit LocalizationNode(const rclcpp::NodeOptions& opts);
+    explicit NuscenesNode(const rclcpp::NodeOptions& opts);
 
   private:
     // load descriptor binary into cv::Mat
