@@ -14,6 +14,7 @@ find_package(message_filters REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(PCL REQUIRED)
 find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
@@ -27,12 +28,13 @@ include_directories(
   ${EIGEN3_INCLUDE_DIR}
 )
 
-add_executable(localization_node
+# Build the localization library
+add_library(localization_lib
   src/localization_node.cpp
   src/Particle_filter.cpp
   src/LinK3D_extractor.cpp
 )
-ament_target_dependencies(localization_node
+ament_target_dependencies(localization_lib
   rclcpp
   sensor_msgs
   nav_msgs
@@ -44,16 +46,24 @@ ament_target_dependencies(localization_node
   tf2_ros
   tf2_msgs
   tf2_geometry_msgs
-  Eigen3
   cv_bridge
   OpenCV
+  Eigen3
 )
 
-target_link_libraries(localization_node
+# Main executable
+add_executable(localization_main src/localizationMain.cpp)
+ament_target_dependencies(localization_main
+  rclcpp
+)
+target_link_libraries(localization_main
+  localization_lib
   ${PCL_LIBRARIES}
 )
 
-install(TARGETS localization_node
+install(TARGETS
+  localization_lib
+  localization_main
   DESTINATION lib/${PROJECT_NAME}
 )
 install(DIRECTORY include/
