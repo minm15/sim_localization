@@ -17,6 +17,7 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_sensor_msgs REQUIRED)        # for tf2_sensor_msgs::doTransform
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -28,7 +29,7 @@ include_directories(
   ${EIGEN3_INCLUDE_DIR}
 )
 
-# Build the localization library
+# ─── build LinK3D + particle‑filter library ─────────────────────────────────────
 add_library(localization_lib
   src/nuscenes_node.cpp
   src/Particle_filter.cpp
@@ -46,12 +47,13 @@ ament_target_dependencies(localization_lib
   tf2_ros
   tf2_msgs
   tf2_geometry_msgs
+  tf2_sensor_msgs
   cv_bridge
   OpenCV
   Eigen3
 )
 
-# Main executable
+# ─── localization_main (your original) ─────────────────────────────────────────
 add_executable(localization_main src/localizationMain.cpp)
 ament_target_dependencies(localization_main
   rclcpp
@@ -61,14 +63,36 @@ target_link_libraries(localization_main
   ${PCL_LIBRARIES}
 )
 
+# ─── map_combined_node (ROS2 port of your map generation) ───────────────────────
+add_executable(map_combined_node src/map_combined_node.cpp)
+ament_target_dependencies(map_combined_node
+  rclcpp
+  sensor_msgs
+  tf2_ros
+  tf2_sensor_msgs
+  tf2_geometry_msgs
+  pcl_conversions
+  PCL
+  cv_bridge
+  OpenCV
+)
+target_link_libraries(map_combined_node
+  localization_lib
+  ${PCL_LIBRARIES}
+)
+
+# ─── install targets & headers & launch ─────────────────────────────────────────
 install(TARGETS
   localization_lib
   localization_main
+  map_combined_node
   DESTINATION lib/${PROJECT_NAME}
 )
+
 install(DIRECTORY include/
   DESTINATION include/
 )
+
 install(DIRECTORY launch/
   DESTINATION share/${PROJECT_NAME}/launch
 )
