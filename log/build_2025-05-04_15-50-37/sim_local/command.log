@@ -1,2 +1,0 @@
-Invoking command in '/home/kaiii/sim-local-ws/src/sim_local/build/sim_local': /usr/bin/cmake /home/kaiii/sim-local-ws/src/sim_local -DCATKIN_INSTALL_INTO_PREFIX_ROOT=0 -DCMAKE_INSTALL_PREFIX=/home/kaiii/sim-local-ws/src/sim_local/install
-Invoked command in '/home/kaiii/sim-local-ws/src/sim_local/build/sim_local' returned '1': /usr/bin/cmake /home/kaiii/sim-local-ws/src/sim_local -DCATKIN_INSTALL_INTO_PREFIX_ROOT=0 -DCMAKE_INSTALL_PREFIX=/home/kaiii/sim-local-ws/src/sim_local/install
