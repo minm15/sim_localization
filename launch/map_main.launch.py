@@ -8,8 +8,8 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='sim_local',
-            executable='map_combined_node',  
-            name='map_combined',
+            executable='map_main',  
+            name='map_main',
             output='screen',
             parameters=[
                 {'dataset': 'nuscenes'},

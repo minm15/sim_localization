@@ -30,15 +30,15 @@ include_directories(
 )
 
 # ── Build a single "localization_lib" that contains:
-#      - nuscenes_node
+#      - nuscenes_local
 #      - particle_filter
 #      - LinK3D_extractor
-#      - map_combined_node (the class)
+#      - nuscenes_map (the class)
 add_library(localization_lib
-  src/nuscenes_node.cpp
+  src/nuscenes_local.cpp
   src/Particle_filter.cpp
   src/LinK3D_extractor.cpp
-  src/map_combined_node.cpp
+  src/nuscenes_map.cpp
 )
 ament_target_dependencies(localization_lib
   rclcpp
@@ -68,12 +68,12 @@ target_link_libraries(localization_main
   ${PCL_LIBRARIES}
 )
 
-# ── Map generator entry‐point: renamed to "map_combined_node"
-add_executable(map_combined_node src/map_main.cpp)
-ament_target_dependencies(map_combined_node
+# ── Map generator entry‐point: renamed to "nuscenes_map"
+add_executable(map_main src/mapMain.cpp)
+ament_target_dependencies(map_main
   rclcpp
 )
-target_link_libraries(map_combined_node
+target_link_libraries(map_main
   localization_lib
   ${PCL_LIBRARIES}
 )
@@ -82,7 +82,7 @@ install(
   TARGETS
     localization_lib
     localization_main
-    map_combined_node
+    map_main
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -1,6 +1,6 @@
 // src/map_main.cpp
 
-#include "sim_local/map_combined_node.hpp"
+#include "sim_local/nuscenes_map.hpp"
 #include <rclcpp/rclcpp.hpp>
 
 int main(int argc, char** argv) {
@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
     }
 
     // spin the map generator
-    auto map_node = std::make_shared<sim_local::MapCombinedNode>(opts);
+    auto map_node = std::make_shared<sim_local::NuscenesMapNode>(opts);
     rclcpp::spin(map_node);
 
     rclcpp::shutdown();

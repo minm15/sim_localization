@@ -14,10 +14,10 @@
 
 namespace sim_local {
 
-class MapCombinedNode : public rclcpp::Node {
+class NuscenesMapNode : public rclcpp::Node {
   public:
     // single constructor, opts is optional
-    explicit MapCombinedNode(const rclcpp::NodeOptions& opts = rclcpp::NodeOptions{});
+    explicit NuscenesMapNode(const rclcpp::NodeOptions& opts = rclcpp::NodeOptions{});
 
   private:
     void lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);

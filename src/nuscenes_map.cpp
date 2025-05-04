@@ -1,4 +1,4 @@
-#include "sim_local/map_combined_node.hpp"
+#include "sim_local/nuscenes_map.hpp"
 #include <algorithm>
 #include <fstream>
 #include <pcl/io/pcd_io.h>
@@ -45,7 +45,7 @@ static Eigen::Matrix4f transformMsgToEigen(const geometry_msgs::msg::Transform& 
 }
 
 //--- ctor
-MapCombinedNode::MapCombinedNode(const rclcpp::NodeOptions& opts)
+NuscenesMapNode::NuscenesMapNode(const rclcpp::NodeOptions& opts)
     : Node("map_combined", opts), tf_buffer_(this->get_clock()), tf_listener_(tf_buffer_),
       first_frame_(true), frame_count_(0) {
     initializeDescriptorFile();
@@ -55,16 +55,16 @@ MapCombinedNode::MapCombinedNode(const rclcpp::NodeOptions& opts)
 
     lidar_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
         "/LIDAR_TOP", rclcpp::SensorDataQoS(),
-        std::bind(&MapCombinedNode::lidarCallback, this, std::placeholders::_1));
+        std::bind(&NuscenesMapNode::lidarCallback, this, std::placeholders::_1));
 
     tf_sub_ = create_subscription<tf2_msgs::msg::TFMessage>(
         "/tf", rclcpp::SystemDefaultsQoS(),
-        std::bind(&MapCombinedNode::tfCallback, this, std::placeholders::_1));
+        std::bind(&NuscenesMapNode::tfCallback, this, std::placeholders::_1));
 
     RCLCPP_INFO(get_logger(), "map_combined node ready");
 }
 
-void MapCombinedNode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
+void NuscenesMapNode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
     auto t = rclcpp::Time(msg->header.stamp);
     lidar_history_.emplace_back(t, msg);
     if (lidar_history_.size() > 1000u)
@@ -72,7 +72,7 @@ void MapCombinedNode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedP
     processPendingTFs();
 }
 
-void MapCombinedNode::tfCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg) {
+void NuscenesMapNode::tfCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg) {
     for (auto& ts : msg->transforms) {
         if (ts.header.frame_id != "map" || ts.child_frame_id != "base_link")
             continue;
@@ -88,7 +88,7 @@ void MapCombinedNode::tfCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg) 
     processPendingTFs();
 }
 
-void MapCombinedNode::processPendingTFs() {
+void NuscenesMapNode::processPendingTFs() {
     while (!tf_queue_.empty()) {
         auto& ts = tf_queue_.front();
         rclcpp::Time tf_t(ts.header.stamp);
@@ -100,7 +100,7 @@ void MapCombinedNode::processPendingTFs() {
 }
 
 template <typename T>
-std::optional<T> MapCombinedNode::findLastBefore(const std::deque<T>& buf, const rclcpp::Time& t) {
+std::optional<T> NuscenesMapNode::findLastBefore(const std::deque<T>& buf, const rclcpp::Time& t) {
     if (buf.empty())
         return {};
     auto it = std::lower_bound(buf.begin(), buf.end(), t,
@@ -115,7 +115,7 @@ std::optional<T> MapCombinedNode::findLastBefore(const std::deque<T>& buf, const
     return *it;
 }
 
-void MapCombinedNode::processOneTF(const geometry_msgs::msg::TransformStamped& ts) {
+void NuscenesMapNode::processOneTF(const geometry_msgs::msg::TransformStamped& ts) {
     auto tf_t = rclcpp::Time(ts.header.stamp);
     auto lidar_opt = findLastBefore(lidar_history_, tf_t);
     if (!lidar_opt) {
