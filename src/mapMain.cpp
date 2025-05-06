@@ -1,5 +1,6 @@
-// src/map_main.cpp
+// src/mapMain.cpp
 
+#include "sim_local/nclt_map.hpp"
 #include "sim_local/nuscenes_map.hpp"
 #include <rclcpp/rclcpp.hpp>
 
@@ -11,18 +12,24 @@ int main(int argc, char** argv) {
     opts.automatically_declare_parameters_from_overrides(true);
     auto driver = std::make_shared<rclcpp::Node>("map_main", opts);
 
-    // std::string dataset = driver->declare_parameter<std::string>("dataset", "nuscenes");
-    std::string dataset = driver->get_parameter("dataset").as_string();
+    std::string dataset;
+    driver->get_parameter_or("dataset", dataset, std::string("nuscenes"));
 
-    if (dataset != "nuscenes") {
+    if (dataset == "nuscenes") {
+        RCLCPP_INFO(driver->get_logger(), "Starting Nuscenes map generator...");
+        auto node = std::make_shared<sim_local::NuscenesMapNode>(opts);
+        rclcpp::spin(node);
+
+    } else if (dataset == "nclt") {
+        RCLCPP_INFO(driver->get_logger(), "Starting NCLT map generator...");
+        auto node = std::make_shared<sim_local::NCLTMapNode>(opts);
+        rclcpp::spin(node);
+
+    } else {
         RCLCPP_ERROR(driver->get_logger(),
-                     "Unsupported dataset '%s', only 'nuscenes' is implemented", dataset.c_str());
-        return 1;
+                     "Unsupported dataset '%s', only 'nuscenes' and 'nclt' are implemented",
+                     dataset.c_str());
     }
-
-    // spin the map generator
-    auto map_node = std::make_shared<sim_local::NuscenesMapNode>(opts);
-    rclcpp::spin(map_node);
 
     rclcpp::shutdown();
     return 0;

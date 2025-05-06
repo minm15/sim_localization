@@ -44,10 +44,9 @@ NuscenesNode::NuscenesNode(const rclcpp::NodeOptions& opts)
     }
 
     // extractor & PF
-    extractor_ =
-        std::make_shared<LinK3D_SLAM::LinK3D_Extractor>(32, 0.1f, 0.4f, 0.3f, 0.3f, 12, 4, 3);
-    particle_filter_ = std::make_shared<ParticleFilter>(init_x_, init_y_, init_z_, init_roll_,
-                                                        init_pitch_, init_yaw_, 128);
+    extractor_ = std::make_shared<LinK3D_SLAM::LinK3D_Extractor>(32, 0.1f, 0.4f, 0.3f, 0.3f, 12, 4, 3);
+    particle_filter_ =
+        std::make_shared<ParticleFilter>(init_x_, init_y_, init_z_, init_roll_, init_pitch_, init_yaw_, 128);
 
     // TF buffer/listener (just to keep alive)
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
@@ -57,15 +56,12 @@ NuscenesNode::NuscenesNode(const rclcpp::NodeOptions& opts)
     pub_ = create_publisher<PoseArray>("particle_pose", 10);
 
     // subscriptions
-    odom_sub_ = create_subscription<Odometry>(
-        "/odom", rclcpp::SystemDefaultsQoS(),
-        std::bind(&NuscenesNode::odomCallback, this, std::placeholders::_1));
-    lidar_sub_ = create_subscription<PointCloud2>(
-        "/LIDAR_TOP", rclcpp::SensorDataQoS(),
-        std::bind(&NuscenesNode::lidarCallback, this, std::placeholders::_1));
-    tf_sub_ = create_subscription<TFMessage>(
-        "/tf", rclcpp::SystemDefaultsQoS(),
-        std::bind(&NuscenesNode::tfCallback, this, std::placeholders::_1));
+    odom_sub_ = create_subscription<Odometry>("/odom", rclcpp::SystemDefaultsQoS(),
+                                              std::bind(&NuscenesNode::odomCallback, this, std::placeholders::_1));
+    lidar_sub_ = create_subscription<PointCloud2>("/LIDAR_TOP", rclcpp::SensorDataQoS(),
+                                                  std::bind(&NuscenesNode::lidarCallback, this, std::placeholders::_1));
+    tf_sub_ = create_subscription<TFMessage>("/tf", rclcpp::SystemDefaultsQoS(),
+                                             std::bind(&NuscenesNode::tfCallback, this, std::placeholders::_1));
 
     RCLCPP_INFO(get_logger(), "Localization node initialized.");
 }
@@ -100,8 +96,8 @@ void NuscenesNode::odomCallback(const Odometry::SharedPtr odom) {
         double dt = (t - last_odom_time_).seconds();
         last_odom_time_ = t;
 
-        tf2::Quaternion oq(current_pose_.orientation.x, current_pose_.orientation.y,
-                           current_pose_.orientation.z, current_pose_.orientation.w);
+        tf2::Quaternion oq(current_pose_.orientation.x, current_pose_.orientation.y, current_pose_.orientation.z,
+                           current_pose_.orientation.w);
         const auto& twist = odom->twist.twist;
         tf2::Quaternion dq;
         dq.setRPY(twist.angular.x * dt, twist.angular.y * dt, twist.angular.z * dt);
@@ -148,10 +144,9 @@ void NuscenesNode::tfCallback(const TFMessage::SharedPtr msg) {
         if (!processed_tf_.insert(key).second)
             continue;
         rclcpp::Time t(ts.header.stamp);
-        auto it = std::upper_bound(tf_queue_.begin(), tf_queue_.end(), t,
-                                   [&](const rclcpp::Time& a, const TransformStamped& b) {
-                                       return a < rclcpp::Time(b.header.stamp);
-                                   });
+        auto it = std::upper_bound(
+            tf_queue_.begin(), tf_queue_.end(), t,
+            [&](const rclcpp::Time& a, const TransformStamped& b) { return a < rclcpp::Time(b.header.stamp); });
         tf_queue_.insert(it, ts);
     }
 }
@@ -226,8 +221,8 @@ void NuscenesNode::processOneTF(const TransformStamped& ts) {
                 "  ODOM err:%5.3f pos:(%6.3f,%6.3f)\n"
                 "  PART err:%5.3f pos:(%6.3f,%6.3f)\n"
                 "  GT   pos:(%6.3f,%6.3f)",
-                frame_count_++, ts.header.stamp.sec, ts.header.stamp.nanosec, o_s, o_ns, l_s, l_ns,
-                e_o, ox, oy, e_p, px, py, gx, gy);
+                frame_count_++, ts.header.stamp.sec, ts.header.stamp.nanosec, o_s, o_ns, l_s, l_ns, e_o, ox, oy, e_p,
+                px, py, gx, gy);
 
     PoseArray pa;
     pa.header.stamp = tf_time;
@@ -237,8 +232,7 @@ void NuscenesNode::processOneTF(const TransformStamped& ts) {
 }
 
 template <typename BufferT>
-std::optional<typename BufferT::value_type> NuscenesNode::findLastBefore(const BufferT& buf,
-                                                                         const rclcpp::Time& t) {
+std::optional<typename BufferT::value_type> NuscenesNode::findLastBefore(const BufferT& buf, const rclcpp::Time& t) {
     using PairT = typename BufferT::value_type;
     if (buf.empty())
         return std::nullopt;
