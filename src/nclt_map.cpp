@@ -1,8 +1,7 @@
-// src/nclt_map_node.cpp
 /******************************************************
  NCLTMapNode — lead with velodyne, chain static & dynamic TF:
    world→odom_link   (static from /tf_static)
-   odom_link→base_link (dynamic from /tf or inverted)
+   odom_link→base_link (dynamic via TF2 buffer lookup)
    base_link→velodyne (static from /tf_static)
  Then LinK3D extract & unmatched→descriptors.bin in world frame.
 ******************************************************/
@@ -16,26 +15,21 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_msgs/msg/tf_message.hpp>
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
 
-#include <deque>
 #include <fstream>
-#include <optional>
-#include <signal.h>
 #include <unordered_set>
 
-// Where we write out each keypoint: 180‐dim descriptor + x,y,z
+// where we dump our 180‐dim + xyz keypoints
 static const std::string descriptorFilePath = "nclt_descriptors.bin";
 
-// Truncate on startup
+// truncate at startup
 static void initializeDescriptorFile() {
     std::ofstream f(descriptorFilePath, std::ios::binary | std::ios::trunc);
     if (!f)
         throw std::runtime_error("Failed to create " + descriptorFilePath);
 }
 
-// Append (idx + 180‐dim + x,y,z)
+// append idx + 180 floats + xyz
 static void appendDescriptorsToFile(const cv::Mat& desc, const std::vector<pcl::PointXYZ>& pts) {
     if (desc.rows != int(pts.size()))
         throw std::runtime_error("Descriptor/point count mismatch");
@@ -70,33 +64,35 @@ static Eigen::Matrix4f transformMsgToEigen(const geometry_msgs::msg::Transform& 
 namespace sim_local {
 
 NCLTMapNode::NCLTMapNode(const rclcpp::NodeOptions& opts)
-    : Node("nclt_map_node", opts), tf_buffer_(this->get_clock()), tf_listener_(tf_buffer_), have_world_odom_(false),
-      have_base_velo_(false), first_frame_(true), frame_count_(0) {
+    : Node("nclt_map_node", opts), tf_buffer_(this->get_clock()), tf_listener_(tf_buffer_) {
     RCLCPP_INFO(get_logger(), "NCLTMapNode starting up…");
     initializeDescriptorFile();
 
-    // LinK3D extractor
+    // one LinK3D extractor
     extractor_ = std::make_shared<LinK3D_SLAM::LinK3D_Extractor>(32, 0.1f, 0.4f, 0.3f, 0.3f, 12, 4, 3);
 
-    // static TF：world→odom_link, base_link→velodyne
+    // static TF subscription only to cache our two needed statics
     static_tf_sub_ = create_subscription<tf2_msgs::msg::TFMessage>(
         "/tf_static", rclcpp::SystemDefaultsQoS(),
         std::bind(&NCLTMapNode::tfStaticCallback, this, std::placeholders::_1));
     RCLCPP_INFO(get_logger(), "Subscribed to /tf_static");
 
-    // dynamic TF：odom_link↔base_link
+    // dynamic TF subscription simply to feed tf_buffer_
     dynamic_tf_sub_ = create_subscription<tf2_msgs::msg::TFMessage>(
         "/tf", rclcpp::SystemDefaultsQoS(), std::bind(&NCLTMapNode::tfDynamicCallback, this, std::placeholders::_1));
     RCLCPP_INFO(get_logger(), "Subscribed to /tf");
 
-    // Velodyne scan
+    // Velodyne scans
+    auto qos = rclcpp::SensorDataQoS()
+                   .keep_last(200) // buffer up to 50 scans
+                   .reliable();
     lidar_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-        "/velodyne_points", rclcpp::SensorDataQoS(),
-        std::bind(&NCLTMapNode::lidarCallback, this, std::placeholders::_1));
+        "/velodyne_points", qos, std::bind(&NCLTMapNode::lidarCallback, this, std::placeholders::_1));
     RCLCPP_INFO(get_logger(), "Subscribed to /velodyne_points");
 }
 
 void NCLTMapNode::tfStaticCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg) {
+    // cache world→odom_link and base_link→velodyne
     for (auto& ts : msg->transforms) {
         if (!have_world_odom_ && ts.header.frame_id == "world" && ts.child_frame_id == "odom_link") {
             world_T_odom_ = transformMsgToEigen(ts.transform);
@@ -111,87 +107,55 @@ void NCLTMapNode::tfStaticCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg
     }
 }
 
-void NCLTMapNode::tfDynamicCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg) {
-    for (auto& ts_in : msg->transforms) {
-        bool is_dyn = false;
-        auto ts = ts_in; // copy
-
-        // odom_link→base_link
-        if (ts.header.frame_id == "odom_link" && ts.child_frame_id == "base_link") {
-            is_dyn = true;
-        }
-        // base_link→odom_link
-        else if (ts.header.frame_id == "base_link" && ts.child_frame_id == "odom_link") {
-            tf2::Transform T;
-            tf2::fromMsg(ts.transform, T);
-            ts.transform = tf2::toMsg(T.inverse());
-            std::swap(ts.header.frame_id, ts.child_frame_id);
-            is_dyn = true;
-        }
-        if (!is_dyn)
-            continue;
-
-        // remove duplicate tf (might be unused in NCLT)
-        // uint64_t key = (uint64_t(ts.header.stamp.sec) << 32) | uint64_t(ts.header.stamp.nanosec);
-        // if (!processed_tf_.insert(key).second)
-        //     continue;
-
-        // insert queue for sorting
-        rclcpp::Time t(ts.header.stamp);
-        auto it = std::upper_bound(tf_queue_.begin(), tf_queue_.end(), t,
-                                   [&](const rclcpp::Time& a, const geometry_msgs::msg::TransformStamped& b) {
-                                       return a < rclcpp::Time(b.header.stamp);
-                                   });
-        tf_queue_.insert(it, ts);
-    }
+void NCLTMapNode::tfDynamicCallback(const tf2_msgs::msg::TFMessage::SharedPtr /*msg*/) {
+    // no-op: tf2_ros::TransformListener already fills tf_buffer_
 }
 
 void NCLTMapNode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
-    RCLCPP_INFO(get_logger(), "Received scan @ %u.%09u, TFs in queue=%zu", msg->header.stamp.sec,
-                msg->header.stamp.nanosec, tf_queue_.size());
+    // 1) log scan arrival
+    RCLCPP_INFO(get_logger(), "Received scan @ %u.%09u", msg->header.stamp.sec, msg->header.stamp.nanosec);
 
-    // find the newest tf <= scan velodyne 
-    rclcpp::Time scan_t(msg->header.stamp);
-    auto it = std::upper_bound(tf_queue_.begin(), tf_queue_.end(), scan_t,
-                               [&](const rclcpp::Time& a, const geometry_msgs::msg::TransformStamped& b) {
-                                   return a < rclcpp::Time(b.header.stamp);
-                               });
-    if (it == tf_queue_.begin()) {
-        RCLCPP_WARN(get_logger(), "No dynamic TF ≤ scan@%u.%09u", msg->header.stamp.sec, msg->header.stamp.nanosec);
+    // 2) compute and report scan‐interval, update max
+    rclcpp::Time current_scan(msg->header.stamp);
+    if (has_last_scan_) {
+        double dt = (current_scan - last_scan_time_).seconds();
+        max_scan_interval_sec_ = std::max(max_scan_interval_sec_, dt);
+        RCLCPP_INFO(get_logger(), "  this interval: %.6f sec, max so far: %.6f sec", dt, max_scan_interval_sec_);
+    }
+    last_scan_time_ = current_scan;
+    has_last_scan_ = true;
+
+    // 3) lookup the dynamic odom_link→base_link at exactly this scan time
+    if (!have_world_odom_ || !have_base_velo_) {
+        RCLCPP_WARN(get_logger(), "Static transforms not yet ready, skipping");
         return;
     }
-    --it;
-    auto ts = *it;
-    // delete the current TF in queue
-    tf_queue_.erase(tf_queue_.begin(), it + 1);
-	RCLCPP_INFO(get_logger(), "Matched TF msg @ %u.%09u", ts.header.stamp.sec, ts.header.stamp.nanosec);
-
-    // lookup odom_link→base_link @ this TF
     geometry_msgs::msg::TransformStamped dyn;
     try {
-        dyn =
-            tf_buffer_.lookupTransform("odom_link", "base_link", ts.header.stamp, rclcpp::Duration::from_seconds(0.1));
+        // request the transform at the scan timestamp
+        dyn = tf_buffer_.lookupTransform("odom_link", "base_link", msg->header.stamp,
+                                         rclcpp::Duration::from_seconds(0.1));
     } catch (const tf2::TransformException& e) {
-        RCLCPP_WARN(get_logger(), "Missing odom_link→base_link@%u.%09u: %s", ts.header.stamp.sec,
-                    ts.header.stamp.nanosec, e.what());
+        RCLCPP_WARN(get_logger(), "Could not lookup odom_link→base_link@%u.%09u: %s", msg->header.stamp.sec,
+                    msg->header.stamp.nanosec, e.what());
         return;
     }
+    // 4) log the matched TF stamp
+    RCLCPP_INFO(get_logger(), "Matched TF @ %u.%09u", dyn.header.stamp.sec, dyn.header.stamp.nanosec);
 
-    // full chain world→odom_link→base_link→velodyne
+    // 5) form full chain world→odom→base→velodyne
     Eigen::Matrix4f chain = world_T_odom_ * transformMsgToEigen(dyn.transform) * base_T_velo_;
 
-    // to PCL
+    // 6) convert to PCL and extract
     auto cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
     pcl::fromROSMsg(*msg, *cloud);
-
-    // extract
     std::vector<pcl::PointXYZ> keypts;
     cv::Mat desc;
     std::vector<int> idx;
     LinK3D_SLAM::MatPt clus;
     (*extractor_)(*cloud, keypts, desc, idx, clus);
 
-    // transform keypts→world
+    // 7) transform keypoints into world frame
     std::vector<pcl::PointXYZ> wpts;
     wpts.reserve(keypts.size());
     for (auto& p : keypts) {
@@ -199,12 +163,12 @@ void NCLTMapNode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr m
         wpts.emplace_back(w.x(), w.y(), w.z());
     }
 
-    // dump unmatched
+    // 8) dump new descriptors exactly as before
     if (first_frame_) {
         appendDescriptorsToFile(desc, wpts);
         prevDescriptors_ = desc.clone();
         first_frame_ = false;
-        RCLCPP_INFO(get_logger(), "Frame %3zu initial: %4zu pts", frame_count_, size_t(desc.rows));
+        RCLCPP_INFO(get_logger(), "Frame %3zu initial: %d pts", frame_count_, desc.rows);
     } else {
         std::vector<std::pair<int, int>> matches;
         extractor_->matcher(prevDescriptors_, desc, matches);
@@ -223,7 +187,7 @@ void NCLTMapNode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr m
         if (!outdesc.empty()) {
             appendDescriptorsToFile(outdesc, outkp);
         }
-        RCLCPP_INFO(get_logger(), "Frame %3zu +%4zu new", frame_count_, size_t(outdesc.rows));
+        RCLCPP_INFO(get_logger(), "Frame %3zu +%d new", frame_count_, outdesc.rows);
         prevDescriptors_ = desc.clone();
     }
 
