@@ -39,6 +39,7 @@ add_library(localization_lib
   src/Particle_filter.cpp
   src/LinK3D_extractor.cpp
   src/nuscenes_map.cpp
+  src/nclt_map.cpp
 )
 ament_target_dependencies(localization_lib
   rclcpp
