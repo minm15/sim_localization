@@ -40,6 +40,7 @@ add_library(localization_lib
   src/LinK3D_extractor.cpp
   src/nuscenes_map.cpp
   src/nclt_map.cpp
+  src/frame_dumper.cpp
 )
 ament_target_dependencies(localization_lib
   rclcpp
@@ -59,7 +60,7 @@ ament_target_dependencies(localization_lib
   Eigen3
 )
 
-# ── Localization entry‐point (your original)
+# ── Localization entry‐point 
 add_executable(localization_main src/localizationMain.cpp)
 ament_target_dependencies(localization_main
   rclcpp
@@ -69,7 +70,7 @@ target_link_libraries(localization_main
   ${PCL_LIBRARIES}
 )
 
-# ── Map generator entry‐point: renamed to "nuscenes_map"
+# ── Map generator entry‐point
 add_executable(map_main src/mapMain.cpp)
 ament_target_dependencies(map_main
   rclcpp
@@ -79,11 +80,22 @@ target_link_libraries(map_main
   ${PCL_LIBRARIES}
 )
 
+# ── NCLT Frame generator
+add_executable(frame_dumper src/frame_dumper.cpp)
+ament_target_dependencies(frame_dumper
+  rclcpp
+)
+target_link_libraries(frame_dumper
+  localization_lib
+  ${PCL_LIBRARIES}
+)
+
 install(
   TARGETS
     localization_lib
     localization_main
     map_main
+    frame_dumper
   DESTINATION lib/${PROJECT_NAME}
 )
 
