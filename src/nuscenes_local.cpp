@@ -169,7 +169,7 @@ void NuscenesNode::processOneTF(const TransformStamped& ts) {
     Eigen::Matrix4f M = transformMsgToEigen(ts.transform);
     double gx = M(0, 3), gy = M(1, 3);
 
-    auto odom_opt = findLastBefore(odom_history_, tf_time);
+    auto odom_opt = findLastBefore(odom_history_, tf_time); // find the last odom data <= TF's timestamp
     auto lidar_opt = findLastBefore(lidar_history_, tf_time);
     if (!odom_opt || !lidar_opt) {
         RCLCPP_WARN(get_logger(), "Missing buffered odom or lidar ≤ TF, skipping");
@@ -188,8 +188,10 @@ void NuscenesNode::processOneTF(const TransformStamped& ts) {
     (*extractor_)(*cloud, keypts, desc, idx, clus);
 
     // descriptor matching + PF update
+    // desciptor match
     std::vector<std::pair<int, int>> matches;
     extractor_->matcher(desc, vectorDatabase_, matches);
+    // for each particle, do geometry match computation
     for (auto& p : particle_filter_->getParticles()) {
         Eigen::Matrix4f Tp = poseToEigen(p.pose);
         auto tks = transformKeyPoints(keypts, Tp);
@@ -204,12 +206,27 @@ void NuscenesNode::processOneTF(const TransformStamped& ts) {
     double e_o = std::hypot(ox - gx, oy - gy);
     double px = best.pose.position.x, py = best.pose.position.y;
     double e_p = std::hypot(px - gx, py - gy);
+    
+    // output log info
+    logFrameInfo(ts.header.stamp, odom_t, lidar_t, e_o, ox, oy, e_p, px, py, gx, gy);
 
-    // log stamps
+    PoseArray pa;
+    pa.header.stamp = tf_time;
+    pa.header.frame_id = "map";
+    pa.poses.push_back(best.pose);
+    pub_->publish(pa);
+}
+
+void NuscenesNode::logFrameInfo(const rclcpp::Time& tf_t, const rclcpp::Time& odom_t, const rclcpp::Time& lidar_t,
+                                double e_o, double ox, double oy, double e_p, double px, double py, double gx,
+                                double gy) {
+    // helper to split secs and nanosecs
     auto stamp_pair = [&](const rclcpp::Time& tt) {
         int64_t ns = tt.nanoseconds();
-        return std::make_pair(uint32_t(ns / 1'000'000'000), uint32_t(ns % 1'000'000'000));
+        return std::make_pair<uint32_t, uint32_t>(uint32_t(ns / 1000000000), uint32_t(ns % 1000000000));
     };
+    // extract tf, odom, lidar
+    auto [tf_s, tf_ns] = stamp_pair(tf_t);
     auto [o_s, o_ns] = stamp_pair(odom_t);
     auto [l_s, l_ns] = stamp_pair(lidar_t);
 
@@ -221,14 +238,7 @@ void NuscenesNode::processOneTF(const TransformStamped& ts) {
                 "  ODOM err:%5.3f pos:(%6.3f,%6.3f)\n"
                 "  PART err:%5.3f pos:(%6.3f,%6.3f)\n"
                 "  GT   pos:(%6.3f,%6.3f)",
-                frame_count_++, ts.header.stamp.sec, ts.header.stamp.nanosec, o_s, o_ns, l_s, l_ns, e_o, ox, oy, e_p,
-                px, py, gx, gy);
-
-    PoseArray pa;
-    pa.header.stamp = tf_time;
-    pa.header.frame_id = "map";
-    pa.poses.push_back(best.pose);
-    pub_->publish(pa);
+                frame_count_++, tf_s, tf_ns, o_s, o_ns, l_s, l_ns, e_o, ox, oy, e_p, px, py, gx, gy);
 }
 
 template <typename BufferT>

@@ -54,14 +54,12 @@ class NuscenesNode : public rclcpp::Node {
 
     // helper to find last ≤ t
     template <typename BufferT>
-    std::optional<typename BufferT::value_type> findLastBefore(const BufferT& buf,
-                                                               const rclcpp::Time& t);
+    std::optional<typename BufferT::value_type> findLastBefore(const BufferT& buf, const rclcpp::Time& t);
 
     // transforms & geometry utils
     Eigen::Matrix4f transformMsgToEigen(const geometry_msgs::msg::Transform& t);
     Eigen::Matrix4f poseToEigen(const geometry_msgs::msg::Pose& p);
-    std::vector<pcl::PointXYZ> transformKeyPoints(const std::vector<pcl::PointXYZ>& pts,
-                                                  const Eigen::Matrix4f& T);
+    std::vector<pcl::PointXYZ> transformKeyPoints(const std::vector<pcl::PointXYZ>& pts, const Eigen::Matrix4f& T);
 
     // parameters & state
     std::string desc_file_;
@@ -91,6 +89,10 @@ class NuscenesNode : public rclcpp::Node {
     rclcpp::Subscription<PointCloud2>::SharedPtr lidar_sub_;
     rclcpp::Subscription<TFMessage>::SharedPtr tf_sub_;
     rclcpp::Publisher<PoseArray>::SharedPtr pub_;
+
+    // Log
+    void logFrameInfo(const rclcpp::Time& tf_t, const rclcpp::Time& odom_t, const rclcpp::Time& lidar_t, double e_o,
+                      double ox, double oy, double e_p, double px, double py, double gx, double gy);
 };
 
 } // namespace sim_local
