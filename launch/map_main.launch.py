@@ -12,10 +12,10 @@ def generate_launch_description():
             name='map_main',
             output='screen',
             parameters=[
-                {'dataset': 'nuscenes'},
+                {'dataset': 'nclt'},
             ],
             remappings=[
-                # ('/LIDAR_TOP','/your_lidar_topic')
+                #('/LIDAR_TOP','/your_lidar_topic')
             ]
         )
     ])

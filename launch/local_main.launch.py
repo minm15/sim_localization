@@ -11,7 +11,8 @@ def generate_launch_description():
             name='localization_main',
             output='screen',
             parameters=[{
-                'dataset': 'nuscenes',   # or override on the command line
+                'dataset': 'nclt',   # or override on the command line
             }],
+            # prefix='gdb -ex run --args'
         ),
     ])

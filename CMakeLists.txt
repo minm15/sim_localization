@@ -36,6 +36,7 @@ include_directories(
 #      - nuscenes_map (the class)
 add_library(localization_lib
   src/nuscenes_local.cpp
+  src/nclt_local.cpp
   src/Particle_filter.cpp
   src/LinK3D_extractor.cpp
   src/nuscenes_map.cpp

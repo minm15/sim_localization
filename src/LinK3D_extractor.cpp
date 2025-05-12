@@ -587,6 +587,7 @@ namespace LinK3D_SLAM
         }         
 
         MatPt scanCloud;
+        std::cout << "[dbg] call removeClosedPoint" << std::endl;
         getEdgePoint(cloudIn, scanCloud);
         
         MatPt areaCloud;

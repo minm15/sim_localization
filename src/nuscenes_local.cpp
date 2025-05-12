@@ -181,6 +181,7 @@ void NuscenesNode::processOneTF(const TransformStamped& ts) {
     // feature extraction
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromROSMsg(*lidar_msg, *cloud);
+    RCLCPP_INFO(get_logger(), "raw cloud: height=%u, width=%u (points=%zu)", cloud->height, cloud->width, cloud->points.size());
     std::vector<pcl::PointXYZ> keypts;
     cv::Mat desc;
     std::vector<int> idx;

@@ -149,6 +149,7 @@ void NCLTMapNode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr m
     // 6) convert to PCL and extract
     auto cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
     pcl::fromROSMsg(*msg, *cloud);
+    RCLCPP_INFO(get_logger(), "raw cloud: height=%u, width=%u (points=%zu)", cloud->height, cloud->width, cloud->points.size());
     std::vector<pcl::PointXYZ> keypts;
     cv::Mat desc;
     std::vector<int> idx;
