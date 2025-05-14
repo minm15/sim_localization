@@ -37,7 +37,7 @@ NcltNode::NcltNode(const rclcpp::NodeOptions& opts) : Node("nclt_localization", 
     RCLCPP_INFO(get_logger(), "[DEBUG] Loaded descriptor DB: rows=%d, cols=%d", R, C);
 
     // build kdtree
-    kdtree = std::make_unique<Kdtree>(vectorDatabase_, 10);
+    kdtree = std::make_unique<Kdtree>(vectorDatabase_, 30);
 
     // -- initialize pose & PF --
     {
@@ -141,7 +141,6 @@ void NcltNode::odomCallback(const nav_msgs::msg::Odometry::SharedPtr odom) {
 }
 
 void NcltNode::groundTruthCallback(const nav_msgs::msg::Odometry::SharedPtr gt) {
-    // ground_truth is already in "world" frame
     rclcpp::Time t(gt->header.stamp);
     gt_history_.emplace_back(t, gt->pose.pose);
     if (gt_history_.size() > 1000)
@@ -179,9 +178,11 @@ void NcltNode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     (*extractor_)(*cloud, keypts, desc, idx, clus);
 
     // PF transform and match
+    Eigen::Matrix4f B = base_T_velo_;
     for (auto& p : particle_filter_->getParticles()) {
-        Eigen::Matrix4f Tp = poseToEigen(p.pose);
-        auto tks = transformKeyPoints(keypts, Tp);
+        Eigen::Matrix4f W = poseToEigen(p.pose);
+        Eigen::Matrix4f T = W * B;
+        auto tks = transformKeyPoints(keypts, T);
         auto knn_indices = kdtree->queryKNN(tks);
 
         // LinK3D matching
@@ -193,7 +194,7 @@ void NcltNode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     }
     particle_filter_->weighting();
     // print log
-    particle_filter_->printParticleInfo();
+    // particle_filter_->printParticleInfo();
     auto best = particle_filter_->getBestParticle(1);
     particle_filter_->resampling();
 
