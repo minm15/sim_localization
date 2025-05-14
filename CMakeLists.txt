@@ -30,10 +30,6 @@ include_directories(
 )
 
 # ── Build a single "localization_lib" that contains:
-#      - nuscenes_local
-#      - particle_filter
-#      - LinK3D_extractor
-#      - nuscenes_map (the class)
 add_library(localization_lib
   src/nuscenes_local.cpp
   src/nclt_local.cpp
@@ -42,6 +38,7 @@ add_library(localization_lib
   src/nuscenes_map.cpp
   src/nclt_map.cpp
   src/frame_dumper.cpp
+  src/kdtree.cpp
 )
 ament_target_dependencies(localization_lib
   rclcpp

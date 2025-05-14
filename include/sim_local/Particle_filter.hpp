@@ -9,6 +9,7 @@
 #include <vector>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 struct Particle {
     geometry_msgs::msg::Pose pose;
@@ -50,6 +51,8 @@ class ParticleFilter {
 
     std::vector<Particle>& getParticles();
     Particle getBestParticle(int top_k);
+
+	void printParticleInfo();
 
   private:
     void initializeParticles(double init_x, double init_y, double init_z, double init_roll,

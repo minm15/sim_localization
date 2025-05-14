@@ -26,6 +26,7 @@
 // Your modules
 #include "sim_local/LinK3D_extractor.h"
 #include "sim_local/Particle_filter.hpp"
+#include "sim_local/kdtree.hpp"
 
 // bring these into the global namespace for brevity
 using geometry_msgs::msg::PoseArray;
@@ -93,6 +94,9 @@ private:
     // Parameters
     std::string desc_file_;
     double init_x_, init_y_, init_z_, init_roll_, init_pitch_, init_yaw_;
+
+    // Kdtree
+    std::unique_ptr<Kdtree> kdtree;
 };
 
 } // namespace sim_local

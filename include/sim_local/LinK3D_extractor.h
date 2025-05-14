@@ -72,6 +72,8 @@ namespace LinK3D_SLAM
 
             void matcher(cv::Mat &descriptors1, cv::Mat &descriptors2, vector<pair<int, int>> &vMatched);
 
+            void matcher(cv::Mat &descriptors1, cv::Mat &descriptors2, vector<pair<int, int>> &vMatched, vector<vector<int>>& knn_indices);
+
             void filterLowSmooth(MatPt &clustered, MatPt &filtered);
 
             void matchEdgePoints(MatPt &filtered1, MatPt &filtered2, vector<int> &index1, vector<int> &index2, MatPt &matchedPoint, vector<pair<int, int>> &vMatched);

@@ -15,8 +15,8 @@ ParticleFilter::ParticleFilter(double ix, double iy, double iz, double ir, doubl
 void ParticleFilter::initializeParticles(double ix, double iy, double iz, double ir, double ip,
                                          double iyaw) {
     std::default_random_engine gen(std::random_device{}());
-    std::normal_distribution<double> pos_dist(0.0, 0.1);
-    std::normal_distribution<double> ang_dist(0.0, 0.01);
+    std::normal_distribution<double> pos_dist(0.0, 0.01);
+    std::normal_distribution<double> ang_dist(0.0, 0.001);
 
     for (auto& p : particles_) {
         p.pose.position.x = ix + pos_dist(gen);
@@ -62,12 +62,31 @@ void ParticleFilter::update(const nav_msgs::msg::Odometry::ConstSharedPtr& odom_
 }
 
 void ParticleFilter::weighting() {
-    double sum = 0.0;
-    for (auto& p : particles_)
-        sum += p.weight;
-    if (sum > 0)
-        for (auto& p : particles_)
-            p.weight /= sum;
+    const float eps = 1e-6f;      
+    float total_weight = 0.0f;
+
+    for (auto& p : particles_) {
+        float lik;
+        if (p.distance <= eps) {
+            lik = 1e-3f;
+        } else {
+            lik = 1.0f / p.distance;
+        }
+        p.weight = p.weight * lik;
+        total_weight += p.weight;
+    }
+
+    if (total_weight <= eps) {
+        float uniform = 1.0f / particles_.size();
+        for (auto& p : particles_) {
+            p.weight = uniform;
+        }
+        return;
+    }
+
+    for (auto& p : particles_) {
+        p.weight /= total_weight;
+    }
 }
 
 void ParticleFilter::resampling() {
@@ -76,8 +95,8 @@ void ParticleFilter::resampling() {
     // find best
     auto best = getBestParticle(1);
     std::default_random_engine gen(std::random_device{}());
-    std::normal_distribution<double> pos_dist(0.0, 0.1);
-    std::normal_distribution<double> ang_dist(0.0, 0.01);
+    std::normal_distribution<double> pos_dist(0.0, 0.01);
+    std::normal_distribution<double> ang_dist(0.0, 0.001);
 
     // sort by weight ascending
     std::sort(particles_.begin(), particles_.end(),
@@ -111,4 +130,17 @@ Particle ParticleFilter::getBestParticle(int k) {
     std::vector<Particle> cp = particles_;
     std::sort(cp.begin(), cp.end(), [](auto& a, auto& b) { return a.distance < b.distance; });
     return cp.front();
+}
+
+void ParticleFilter::printParticleInfo() {
+    const auto& particles = getParticles();
+    auto logger = rclcpp::get_logger("particle_filter");
+    for (size_t i = 0; i < particles.size(); ++i) {
+        RCLCPP_INFO(
+            logger,
+            "Particle[%zu] weight: %f",
+            i,
+            particles[i].weight  
+        );
+    }
 }

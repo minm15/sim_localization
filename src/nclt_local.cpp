@@ -12,12 +12,12 @@ namespace sim_local {
 NcltNode::NcltNode(const rclcpp::NodeOptions& opts) : Node("nclt_localization", opts) {
     // -- parameters --
     declare_parameter<std::string>("descriptor_file", "2012_01_15_nclt_descriptors.bin");
-    declare_parameter<double>("initial_pose_x", 0.0);
-    declare_parameter<double>("initial_pose_y", 0.0);
+    declare_parameter<double>("initial_pose_x", 0.430);
+    declare_parameter<double>("initial_pose_y", -0.486);
     declare_parameter<double>("initial_pose_z", 0.0);
-    declare_parameter<double>("initial_roll", 0.0);
-    declare_parameter<double>("initial_pitch", 0.0);
-    declare_parameter<double>("initial_yaw", 0.0);
+    declare_parameter<double>("initial_roll", -0.023);
+    declare_parameter<double>("initial_pitch", 0.001);
+    declare_parameter<double>("initial_yaw", -0.123);
     get_parameter("descriptor_file", desc_file_);
     get_parameter("initial_pose_x", init_x_);
     get_parameter("initial_pose_y", init_y_);
@@ -32,6 +32,12 @@ NcltNode::NcltNode(const rclcpp::NodeOptions& opts) : Node("nclt_localization", 
 		RCLCPP_ERROR(get_logger(), "[ERROR] vectorDatabase_ is empty!");
 		return;
 	}
+    int R = vectorDatabase_.rows;
+    int C = vectorDatabase_.cols;
+    RCLCPP_INFO(get_logger(), "[DEBUG] Loaded descriptor DB: rows=%d, cols=%d", R, C);
+
+    // build kdtree
+    kdtree = std::make_unique<Kdtree>(vectorDatabase_, 10);
 
     // -- initialize pose & PF --
     {
@@ -165,24 +171,32 @@ void NcltNode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     // extract LinK3D features
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::fromROSMsg(*msg, *cloud);
-	RCLCPP_INFO(get_logger(), "raw cloud: height=%u, width=%u (points=%zu)", cloud->height, cloud->width, cloud->points.size());
+	// RCLCPP_INFO(get_logger(), "raw cloud: height=%u, width=%u (points=%zu)", cloud->height, cloud->width, cloud->points.size());
     std::vector<pcl::PointXYZ> keypts;
     cv::Mat desc;
     std::vector<int> idx;
     LinK3D_SLAM::MatPt clus;
     (*extractor_)(*cloud, keypts, desc, idx, clus);
 
-    // PF measurement update
-    std::vector<std::pair<int, int>> matches;
-    extractor_->matcher(desc, vectorDatabase_, matches);
+    // PF transform and match
     for (auto& p : particle_filter_->getParticles()) {
         Eigen::Matrix4f Tp = poseToEigen(p.pose);
         auto tks = transformKeyPoints(keypts, Tp);
+        auto knn_indices = kdtree->queryKNN(tks);
+
+        // LinK3D matching
+        std::vector<std::pair<int, int>> matches;
+        extractor_->matcher(desc, vectorDatabase_, matches, knn_indices);
+
+        // particle geometry matching 
         p.map_matching(tks, vectorDatabase_, matches);
     }
     particle_filter_->weighting();
+    // print log
+    particle_filter_->printParticleInfo();
     auto best = particle_filter_->getBestParticle(1);
     particle_filter_->resampling();
+
 
     // compute XY error
     double ex = best.pose.position.x - gt_pose.position.x;
@@ -271,25 +285,55 @@ std::vector<pcl::PointXYZ> NcltNode::transformKeyPoints(const std::vector<pcl::P
     return out;
 }
 
-void NcltNode::logFrameInfo(const rclcpp::Time& scan_t, const rclcpp::Time& odom_t, const rclcpp::Time& gt_t,
-                            double error_xy, const geometry_msgs::msg::Pose& pred_pose,
-                            const geometry_msgs::msg::Pose& gt_pose) {
+void NcltNode::logFrameInfo(const rclcpp::Time& scan_t,
+                            const rclcpp::Time& odom_t,
+                            const rclcpp::Time& gt_t,
+                            double error_xy,
+                            const geometry_msgs::msg::Pose& pred_pose,
+                            const geometry_msgs::msg::Pose& gt_pose)
+{
     auto split = [&](const rclcpp::Time& tt) {
         int64_t ns = tt.nanoseconds();
-        return std::make_pair(uint32_t(ns / 1'000'000'000), uint32_t(ns % 1'000'000'000));
+        return std::make_pair<uint32_t,uint32_t>(
+            uint32_t(ns / 1'000'000'000),
+            uint32_t(ns % 1'000'000'000));
     };
     auto [s_s, s_ns] = split(scan_t);
     auto [o_s, o_ns] = split(odom_t);
     auto [g_s, g_ns] = split(gt_t);
+
+    // extract GT quaternion
+    const auto &q = gt_pose.orientation;
+    // convert to RPY if you like:
+    tf2::Quaternion tf_q(q.x, q.y, q.z, q.w);
+    double roll, pitch, yaw;
+    tf2::Matrix3x3(tf_q).getRPY(roll, pitch, yaw);
+
     RCLCPP_INFO(get_logger(),
-                "Frame %3zu\n"
-                "SCAN stamp: %u.%09u\n"
-                "ODOM stamp: %u.%09u\n"
-                "GT   stamp: %u.%09u\n"
-                "  ERROR XY: %.3f m\n"
-                "  PRED pos:(%6.3f,%6.3f)  GT pos:(%6.3f,%6.3f)",
-                frame_count_, s_s, s_ns, o_s, o_ns, g_s, g_ns, error_xy, pred_pose.position.x, pred_pose.position.y,
-                gt_pose.position.x, gt_pose.position.y);
+        "Frame %3zu\n"
+        "SCAN stamp: %u.%09u\n"
+        "ODOM stamp: %u.%09u\n"
+        "GT   stamp: %u.%09u\n"
+        "  ERROR XY: %.3f m\n"
+        "  PRED pos:(%6.3f,%6.3f)  PRED ori quat:(%.3f,%.3f,%.3f,%.3f)\n"
+        "  GT   pos:(%6.3f,%6.3f)  GT   ori quat:(%.3f,%.3f,%.3f,%.3f)\n"
+        "  GT   ori RPY:(%.3f,%.3f,%.3f)",
+        frame_count_,
+        s_s, s_ns,
+        o_s, o_ns,
+        g_s, g_ns,
+        error_xy,
+        pred_pose.position.x,
+        pred_pose.position.y,
+        pred_pose.orientation.x,
+        pred_pose.orientation.y,
+        pred_pose.orientation.z,
+        pred_pose.orientation.w,
+        gt_pose.position.x,
+        gt_pose.position.y,
+        q.x, q.y, q.z, q.w,
+        roll, pitch, yaw
+    );
 }
 
 } // namespace sim_local

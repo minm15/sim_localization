@@ -11,7 +11,7 @@ namespace sim_local {
 NuscenesNode::NuscenesNode(const rclcpp::NodeOptions& opts)
     : Node("map_based_localization", opts), frame_count_(0), has_last_odom_time_(false) {
     // parameters
-    declare_parameter<std::string>("descriptor_file", "descriptors.bin");
+    declare_parameter<std::string>("descriptor_file", "nuscene_descriptors.bin");
     declare_parameter<double>("initial_pose_x", 411.303935);
     declare_parameter<double>("initial_pose_y", 1180.890379);
     declare_parameter<double>("initial_pose_z", 0.0);
@@ -199,8 +199,11 @@ void NuscenesNode::processOneTF(const TransformStamped& ts) {
         p.map_matching(tks, vectorDatabase_, matches);
     }
     particle_filter_->weighting();
+    // print log
+    particle_filter_->printParticleInfo();
     auto best = particle_filter_->getBestParticle(1);
     particle_filter_->resampling();
+
 
     // compute errors
     double ox = odom_pose.position.x, oy = odom_pose.position.y;
