@@ -172,19 +172,9 @@ void NcltNode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     LinK3D_SLAM::MatPt clus;
     (*extractor_)(*cloud, keypts, desc, idx, clus);
 
-    // transform keypoints → world
-    Eigen::Matrix4f odomM = poseToEigen(odom_pose);
-    Eigen::Matrix4f chain = world_T_odom_ * odomM * base_T_velo_;
-    std::vector<pcl::PointXYZ> wpts;
-    wpts.reserve(keypts.size());
-    for (auto& p : keypts) {
-        Eigen::Vector4f v{p.x, p.y, p.z, 1.0f}, w = chain * v;
-        wpts.emplace_back(w.x(), w.y(), w.z());
-    }
-
     // PF measurement update
     std::vector<std::pair<int, int>> matches;
-    // extractor_->matcher(desc, vectorDatabase_, matches);
+    extractor_->matcher(desc, vectorDatabase_, matches);
     for (auto& p : particle_filter_->getParticles()) {
         Eigen::Matrix4f Tp = poseToEigen(p.pose);
         auto tks = transformKeyPoints(keypts, Tp);
