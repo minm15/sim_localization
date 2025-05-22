@@ -6,7 +6,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     root_arg = DeclareLaunchArgument(
         'root_path',
-        default_value='./nclt_frame_desc/2012-01-15',
+        default_value='./nclt_frame_desc/2013-01-10',
         description='Root directory under which a \"frames\" folder will be created'
     )
 

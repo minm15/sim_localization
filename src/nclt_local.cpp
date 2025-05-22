@@ -11,13 +11,13 @@ namespace sim_local {
 
 NcltNode::NcltNode(const rclcpp::NodeOptions& opts) : Node("nclt_localization", opts) {
     // -- parameters --
-    declare_parameter<std::string>("descriptor_file", "2012_01_15_nclt_descriptors.bin");
-    declare_parameter<double>("initial_pose_x", 0.430);
-    declare_parameter<double>("initial_pose_y", -0.486);
-    declare_parameter<double>("initial_pose_z", 0.0);
-    declare_parameter<double>("initial_roll", -0.023);
-    declare_parameter<double>("initial_pitch", 0.001);
-    declare_parameter<double>("initial_yaw", -0.123);
+    declare_parameter<std::string>("descriptor_file", "2013_01_10_nclt_descriptors.bin");
+    declare_parameter<double>("initial_pose_x", 0.000);
+    declare_parameter<double>("initial_pose_y", 0.000);
+    declare_parameter<double>("initial_pose_z", 6.545);
+    declare_parameter<double>("initial_roll", -0.029);
+    declare_parameter<double>("initial_pitch", -0.010);
+    declare_parameter<double>("initial_yaw", -0.148);
     get_parameter("descriptor_file", desc_file_);
     get_parameter("initial_pose_x", init_x_);
     get_parameter("initial_pose_y", init_y_);

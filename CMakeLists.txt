@@ -88,12 +88,22 @@ target_link_libraries(frame_dumper
   ${PCL_LIBRARIES}
 )
 
+# write csv
+add_executable(write_csv src/write_csv.cpp)
+ament_target_dependencies(write_csv
+  rclcpp
+  nav_msgs
+  tf2
+  tf2_ros
+)
+
 install(
   TARGETS
     localization_lib
     localization_main
     map_main
     frame_dumper
+    write_csv
   DESTINATION lib/${PROJECT_NAME}
 )
 
