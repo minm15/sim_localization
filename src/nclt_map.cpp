@@ -50,7 +50,7 @@ NCLTMapNode::NCLTMapNode(const rclcpp::NodeOptions& opts)
     initializeDescriptorFile(descriptor_path_);
 
     // LinK3D
-    extractor_ = std::make_shared<LinK3D_SLAM::LinK3D_Extractor>(32, 0.1f, 0.4f, 0.3f, 0.3f, 12, 4, 3);
+    extractor_ = std::make_shared<LinK3D_SLAM::LinK3D_Extractor>(32, 0.1f, 0.4f, 0.3f, 0.3f, 12, 4, 5);
 
     // 1. cache static base_link→velodyne
     static_tf_sub_ = create_subscription<tf2_msgs::msg::TFMessage>(

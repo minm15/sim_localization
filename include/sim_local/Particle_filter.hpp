@@ -1,64 +1,81 @@
 #pragma once
+/*  Particle Filter header
+ *  ----------------------------------------------------------
+ *  • 位姿 6-DOF，但运动模型采用 SE(2)（x-y-yaw）；
+ *    z / roll / pitch 仅加入小幅随机扰动以避免数值漂移。
+ *  • 线速度取自 Odometry.linear.x，角速度取自 Imu.angular_velocity.z。
+ */
 
 #include <Eigen/Dense>
+#include <array>
 #include <geometry_msgs/msg/pose.hpp>
 #include <nav_msgs/msg/odometry.hpp>
-#include <pcl/point_cloud.h>
+#include <sensor_msgs/msg/imu.hpp>
+#include <opencv2/core.hpp>
 #include <pcl/point_types.h>
+#include <random>
+#include <rclcpp/rclcpp.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <vector>
-#include <opencv2/core/mat.hpp>
-#include <opencv2/core.hpp>
-#include <rclcpp/rclcpp.hpp>
 
-struct Particle {
-    geometry_msgs::msg::Pose pose;
-    double distance;
-    double weight;
+struct Particle
+{
+  geometry_msgs::msg::Pose pose;   ///< 6-DOF pose
+  double distance{0.0};            ///< map-matching score
+  double weight{1.0};              ///< importance weight
 
-    void map_matching(std::vector<pcl::PointXYZ>& transformedKeyPoints, cv::Mat& map_descriptors,
-                      std::vector<std::pair<int, int>>& vMatched) {
-        distance = 0.0;
-        for (auto &matched : vMatched) {
-            int map_index = matched.second;
-            int sensor_index = matched.first;
-            float map_x = map_descriptors.at<float>(map_index, 180);
-            float map_y = map_descriptors.at<float>(map_index, 181);
-            float sensor_x = transformedKeyPoints[sensor_index].x;
-            float sensor_y = transformedKeyPoints[sensor_index].y;
-
-            float dx = map_x - sensor_x;
-            float dy = map_y - sensor_y;
-            float dist = std::sqrt(dx * dx + dy * dy);
-            if (dist <= 5.0f) {
-                distance += dist;
-            }
-        }
-    }
+  void map_matching(std::vector<pcl::PointXYZ>& transformedKeyPoints,
+                    cv::Mat& map_descriptors,
+                    std::vector<std::pair<int, int>>& vMatched);
 };
 
-namespace sim_local {
+namespace sim_local
+{
 
-class ParticleFilter {
-  public:
-    ParticleFilter(double init_x, double init_y, double init_z, double init_roll, double init_pitch,
-                   double init_yaw, int num_particles);
+class ParticleFilter
+{
+public:
+  ParticleFilter(double init_x,
+                 double init_y,
+                 double init_z,
+                 double init_roll,
+                 double init_pitch,
+                 double init_yaw,
+                 int num_particles);
 
-    void update(const nav_msgs::msg::Odometry::ConstSharedPtr& odom_msg, double time_diff);
+  /// 用最新的里程计和 IMU 做一次 predict，dt 是二者时间差
+  void update(const nav_msgs::msg::Odometry::ConstSharedPtr& odom,
+              const sensor_msgs::msg::Imu::ConstSharedPtr& imu,
+              double dt);
 
-    void weighting();
-    void resampling();
+  void weighting();
+  void resampling();
 
-    std::vector<Particle>& getParticles();
-    Particle getBestParticle(int top_k);
+  std::vector<Particle>& getParticles();
+  Particle getBestParticle(int top_k = 1);
+  void printParticleInfo(int i);
 
-	void printParticleInfo();
+private:
+  void initializeParticles(double init_x,
+                           double init_y,
+                           double init_z,
+                           double init_roll,
+                           double init_pitch,
+                           double init_yaw);
 
-  private:
-    void initializeParticles(double init_x, double init_y, double init_z, double init_roll,
-                             double init_pitch, double init_yaw);
+  /// 内部的运动模型，只接受线速度和角速度
+  void predict(double linear_x,
+               double angular_z,
+               double dt);
 
-    std::vector<Particle> particles_;
+  void systematicResample();
+
+  std::vector<Particle>          particles_;
+  std::array<double, 36>         odom_pose_cov_{};
+  std::array<double, 36>         odom_twist_cov_{};
+  bool                           have_odom_cov_{false};
+
+  std::default_random_engine     gen_{std::random_device{}()};
 };
 
-} // namespace sim_local
+}  // namespace sim_local

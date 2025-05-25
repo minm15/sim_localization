@@ -509,7 +509,6 @@ void LinK3D_Extractor::operator()(pcl::PointCloud<pcl::PointXYZ>& cloudIn, std::
     }
 
     MatPt scanCloud;
-    std::cout << "[dbg] call removeClosedPoint" << std::endl;
     getEdgePoint(cloudIn, scanCloud);
 
     MatPt areaCloud;
@@ -590,70 +589,42 @@ void LinK3D_Extractor::matcher(cv::Mat& descriptors1, cv::Mat& descriptors2, vec
     }
 }
 
-void LinK3D_Extractor::matcher(cv::Mat& descriptors1, cv::Mat& descriptors2, vector<pair<int, int>>& vMatched,
-                               vector<vector<int>>& knn_indices) {
+void LinK3D_Extractor::matcher(
+    cv::Mat& descriptors1,
+    cv::Mat& descriptors2,
+    std::vector<std::vector<int>>& candidates,
+    std::vector<std::pair<int, int>>& vMatched)
+{
     int ptSize1 = descriptors1.rows;
-    int ptSize2 = descriptors2.rows;
+    vMatched.clear();
+    vMatched.reserve(ptSize1);
 
-    std::multimap<int, int> matchedIndexScore;
-    std::multimap<int, int> mMatchedIndex;
-    set<int> sIndex;
-
-    for (int i = 0; i < ptSize1; i++) {
-        std::pair<int, int> highestIndexScore(0, 0);
+    for (int i = 0; i < ptSize1; ++i) {
         float* pDes1 = descriptors1.ptr<float>(i);
 
-        for (int j : knn_indices[i]) {
-            int sameBitScore = 0;
-            float* pDes2 = descriptors2.ptr<float>(j);
+        int bestJ = -1;
+        int bestScore = 0;
 
-            for (int bitNum = 0; bitNum < 180; bitNum++) {
-                if (pDes1[bitNum] != 0 && pDes2[bitNum] != 0 && abs(pDes1[bitNum] - pDes2[bitNum]) <= 0.2) {
-                    sameBitScore += 1;
+        for (int j : candidates[i]) {
+            float* pDes2 = descriptors2.ptr<float>(j);
+            int sameBitScore = 0;
+
+            for (int bitNum = 0; bitNum < 180; ++bitNum) {
+                float v1 = pDes1[bitNum];
+                float v2 = pDes2[bitNum];
+                if (v1 != 0.0f && v2 != 0.0f && std::abs(v1 - v2) <= 0.2f) {
+                    ++sameBitScore;
                 }
             }
 
-            if (sameBitScore > highestIndexScore.second) {
-                highestIndexScore.first = j;
-                highestIndexScore.second = sameBitScore;
+            if (sameBitScore > bestScore) {
+                bestScore = sameBitScore;
+                bestJ = j;
             }
         }
-        // According to i, get the score
-        matchedIndexScore.insert(std::make_pair(i, highestIndexScore.second));
-        // According to j, get i
-        mMatchedIndex.insert(std::make_pair(highestIndexScore.first, i));
-        sIndex.insert(highestIndexScore.first);
-    }
 
-    // Remove one-to-multiple matches for descriptor2
-    for (std::set<int>::iterator setIt = sIndex.begin(); setIt != sIndex.end(); ++setIt) {
-        int indexJ = *setIt;
-        auto entries = mMatchedIndex.count(indexJ);
-
-        if (entries == 1) {
-            auto iterI = mMatchedIndex.find(indexJ);
-            auto iterScore = matchedIndexScore.find(iterI->second);
-            if (iterScore->second >= mScoreTh) {
-                vMatched.emplace_back(std::make_pair(iterI->second, indexJ));
-            }
-        } else {
-            auto iter1 = mMatchedIndex.find(indexJ);
-            int highestScore = 0;
-            int highestScoreIndex = -1;
-
-            while (entries) {
-                int indexI = iter1->second;
-                auto iterScore = matchedIndexScore.find(indexI);
-                if (iterScore->second > highestScore) {
-                    highestScore = iterScore->second;
-                    highestScoreIndex = indexI;
-                }
-                ++iter1;
-                --entries;
-            }
-            if (highestScore >= mScoreTh) {
-                vMatched.emplace_back(std::make_pair(highestScoreIndex, indexJ));
-            }
+        if (bestJ >= 0 && bestScore >= mScoreTh) {
+            vMatched.emplace_back(i, bestJ);
         }
     }
 }

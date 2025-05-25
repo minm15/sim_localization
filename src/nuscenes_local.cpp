@@ -200,7 +200,7 @@ void NuscenesNode::processOneTF(const TransformStamped& ts) {
     }
     particle_filter_->weighting();
     // print log
-    particle_filter_->printParticleInfo();
+    // particle_filter_->printParticleInfo();
     auto best = particle_filter_->getBestParticle(1);
     particle_filter_->resampling();
 
