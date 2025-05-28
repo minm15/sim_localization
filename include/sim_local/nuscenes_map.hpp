@@ -25,8 +25,7 @@ class NuscenesMapNode : public rclcpp::Node {
     void processPendingTFs();
     void processOneTF(const geometry_msgs::msg::TransformStamped& ts);
 
-    template <typename T>
-    std::optional<T> findLastBefore(const std::deque<T>& buf, const rclcpp::Time& t);
+    template <typename T> std::optional<T> findLastBefore(const std::deque<T>& buf, const rclcpp::Time& t);
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub_;
     rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr tf_sub_;

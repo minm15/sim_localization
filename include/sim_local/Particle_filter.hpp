@@ -9,6 +9,8 @@
 #include <random>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
+#include <sophus/se3.hpp>
+#include <sophus/so3.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <vector>
 
@@ -52,6 +54,11 @@ class ParticleFilter {
     bool have_odom_cov_{false};
 
     std::default_random_engine gen_{std::random_device{}()};
+
+    template <typename T = float> T nrand(T stddev) {
+        std::normal_distribution<T> dist(T(0), stddev);
+        return dist(gen_);
+    }
 };
 
 } // namespace sim_local

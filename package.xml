@@ -21,4 +21,5 @@
   <depend>tf2_msgs</depend>
   <depend>tf2_geometry_msgs</depend>
   <depend>Eigen3</depend>
+  <depend>Sophus</depend>
 </package>

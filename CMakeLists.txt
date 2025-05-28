@@ -21,6 +21,7 @@ find_package(tf2_sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(Sophus REQUIRED)
 
 include_directories(
   include
@@ -38,6 +39,7 @@ add_library(localization_lib
   src/nuscenes_map.cpp
   src/nclt_map.cpp
   src/frame_dumper.cpp
+  src/util.cpp
 )
 ament_target_dependencies(localization_lib
   rclcpp
@@ -55,6 +57,7 @@ ament_target_dependencies(localization_lib
   cv_bridge
   OpenCV
   Eigen3
+  Sophus
 )
 
 # ── Localization entry‐point 
@@ -65,6 +68,7 @@ ament_target_dependencies(localization_main
 target_link_libraries(localization_main
   localization_lib
   ${PCL_LIBRARIES}
+  Sophus::Sophus
 )
 
 # ── Map generator entry‐point
