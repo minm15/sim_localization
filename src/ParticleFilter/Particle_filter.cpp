@@ -19,13 +19,19 @@ void Particle::map_matching(std::vector<pcl::PointXYZ>& transformedKeyPoints, cv
         float sx = transformedKeyPoints[si].x;
         float sy = transformedKeyPoints[si].y;
         float d = std::hypot(mx - sx, my - sy);
-        distance += d;
-        if (d <= 1.0f) {
+        
+        if (d <= 2.0f) {
+            distance += d;
             ++success;
         }
     }
     auto logger = rclcpp::get_logger("particle_filter");
-    // RCLCPP_INFO(logger, "matches: %d / %zu", success, vMatched.size());
+    RCLCPP_INFO(logger, "matches: %d / %zu", success, vMatched.size());
+}
+
+void Particle::printInfo(const char* str) {
+    auto logger = rclcpp::get_logger("particle_filter");
+    RCLCPP_INFO(logger, "%s dist: %.3f", str, distance);
 }
 
 // helper: convert geometry_msgs::Pose to Sophus::SE3f
@@ -132,7 +138,7 @@ void ParticleFilter::resampling() {
 
     // 1. pick the best particle
     Particle best = getBestParticle(1);
-    int nr = N / 4;
+    int nr = N / 3;
 
     // 2. sort by weight ascending and collect indices of worst particles
     std::vector<std::pair<double,int>> widx;
@@ -142,8 +148,8 @@ void ParticleFilter::resampling() {
     std::sort(widx.begin(), widx.end()); // weights from small to large
 
     // 3. for each of the worst nr particles, clone the best and add jitter
-    std::normal_distribution<double> nd_xyz(0.0, 0.03);    // position jitter σ≈2cm
-    std::normal_distribution<double> nd_rpy(0.0, 0.01);    // orientation jitter σ≈0.01rad (~0.6°)
+    std::normal_distribution<double> nd_xyz(0.0, 0.022);    // position jitter σ≈2cm
+    std::normal_distribution<double> nd_rpy(0.0, 0.001);    // orientation jitter σ≈0.01rad (~0.6°)
     for (int k = 0; k < nr; k++) {
         int idx = widx[k].second;
         // 3a. copy best

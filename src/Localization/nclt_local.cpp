@@ -18,8 +18,8 @@ namespace sim_local {
 //------------------------------------------------------------------------------
 NcltNode::NcltNode(const rclcpp::NodeOptions& opts) : Node("nclt_localization", opts) {
     // 1) param
-    declare_parameter<std::string>("descriptor_file", "2013_01_10_nclt_descriptors.bin");
-    declare_parameter<int>("buckets_per_dim", 8);
+    declare_parameter<std::string>("descriptor_file", "nclt_descriptors.bin");
+    declare_parameter<int>("buckets_per_dim", 4);
     declare_parameter<double>("initial_pose_x", 0.0);
     declare_parameter<double>("initial_pose_y", 0.0);
     declare_parameter<double>("initial_pose_z", 6.545);
@@ -237,6 +237,7 @@ void NcltNode::lidarCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     }
     particle_filter_->weighting();
     auto best = particle_filter_->getBestParticle(1);
+
     particle_filter_->resampling();
 
     // 5) log

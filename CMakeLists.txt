@@ -33,13 +33,14 @@ include_directories(
 # ── Build a single "localization_lib" that contains:
 add_library(localization_lib
   # src/nuscenes_local.cpp
-  src/nclt_local.cpp
-  src/Particle_filter.cpp
-  src/LinK3D_extractor.cpp
-  src/nuscenes_map.cpp
-  src/nclt_map.cpp
-  src/frame_dumper.cpp
-  src/util.cpp
+  src/Localization/nclt_local.cpp
+  src/ParticleFilter/Particle_filter.cpp
+  src/Util/LinK3D_extractor.cpp
+  src/MapGeneration/nuscenes_map.cpp
+  src/MapGeneration/nclt_map.cpp
+  src/MapGeneration/nclt_map_gen.cpp
+  src/Util/frame_dumper.cpp
+  src/Util/util.cpp
 )
 ament_target_dependencies(localization_lib
   rclcpp
@@ -61,7 +62,7 @@ ament_target_dependencies(localization_lib
 )
 
 # ── Localization entry‐point 
-add_executable(localization_main src/localizationMain.cpp)
+add_executable(localization_main src/Main/localizationMain.cpp)
 ament_target_dependencies(localization_main
   rclcpp
 )
@@ -72,7 +73,7 @@ target_link_libraries(localization_main
 )
 
 # ── Map generator entry‐point
-add_executable(map_main src/mapMain.cpp)
+add_executable(map_main src/Main/mapMain.cpp)
 ament_target_dependencies(map_main
   rclcpp
 )
@@ -82,7 +83,7 @@ target_link_libraries(map_main
 )
 
 # ── NCLT Frame generator
-add_executable(frame_dumper src/frame_dumper.cpp)
+add_executable(frame_dumper src/Util/frame_dumper.cpp)
 ament_target_dependencies(frame_dumper
   rclcpp
 )
@@ -91,8 +92,18 @@ target_link_libraries(frame_dumper
   ${PCL_LIBRARIES}
 )
 
+# version2.0 NCLT reference map
+add_executable(nclt_map_gen src/MapGeneration/nclt_map_gen.cpp)
+ament_target_dependencies(nclt_map_gen
+  rclcpp
+)
+target_link_libraries(nclt_map_gen
+  localization_lib
+  ${PCL_LIBRARIES}
+)
+
 # write csv
-add_executable(write_csv src/write_csv.cpp)
+add_executable(write_csv src/Util/write_csv.cpp)
 ament_target_dependencies(write_csv
   rclcpp
   nav_msgs
@@ -107,6 +118,7 @@ install(
     map_main
     frame_dumper
     write_csv
+    nclt_map_gen
   DESTINATION lib/${PROJECT_NAME}
 )
 

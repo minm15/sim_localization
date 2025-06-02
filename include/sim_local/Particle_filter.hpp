@@ -21,6 +21,8 @@ struct Particle {
 
     void map_matching(std::vector<pcl::PointXYZ>& transformedKeyPoints, cv::Mat& map_descriptors,
                       std::vector<std::pair<int, int>>& vMatched);
+
+	void printInfo(const char* str);
 };
 
 namespace sim_local {
